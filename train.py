@@ -1,17 +1,12 @@
 import time
 import os
 import argparse
-import numpy as np
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras import callbacks
-from tensorflow.python.keras.applications.efficientnet import EfficientNetB0
-from tensorflow.python.keras.engine import base_layer
-from tensorflow.python.ops.variables import global_variables_initializer
-from tensorflow.python.training.tracking import base
 
 
 class ImageClassifier():
@@ -23,8 +18,8 @@ class ImageClassifier():
                  ):
         self.epochs = epochs
         self.batch_size = batch_size
-        self.target_size = target_size
-        self.img_shape = (target_size, target_size)
+        self.target_size = (target_size, target_size)
+        self.img_shape = self.target_size + (3,)
         self.base_learning_rate = base_learning_rate
         self.architecture = architecture
         self.dataset_dir = dataset_dir
@@ -38,13 +33,15 @@ class ImageClassifier():
         self.zoom_range = zoom_range
         self.shear_range = shear_range
         self.rotation_range = rotation_range
+        self.train_id = str(int(time.time()))
 
     def _prep_dataset(self):
         train_datagen = ImageDataGenerator(shear_range=self.shear_range,
                                            zoom_range=self.zoom_range,
                                            rotation_range=self.rotation_range,
                                            horizontal_flip=self.hflip,
-                                           vertical_flip=self.vflip)
+                                           vertical_flip=self.vflip
+                                           )
         val_datagen = ImageDataGenerator()
         self.train_generator = train_datagen.flow_from_directory(
                                 os.path.join(self.dataset_dir, 'train'),
@@ -57,6 +54,7 @@ class ImageClassifier():
                                 batch_size=self.batch_size,
                                 class_mode='binary')
 
+
     def _get_base_model(self):
         if 'efficient' in self.architecture.lower():
             from tensorflow.keras.applications.efficientnet import EfficientNetB3
@@ -65,7 +63,20 @@ class ImageClassifier():
                                              weights='imagenet')
             self.preprocess_input = tf.keras.applications.efficientnet.preprocess_input
             self.official_architecture = 'EfficientNetB3'
-            self.base_model.trainable = False
+            self.base_model.trainable = True
+        elif 'inception' in self.architecture.lower():
+            from tensorflow.keras.applications.inception_v3 import InceptionV3
+            self.base_model = InceptionV3(input_shape=self.img_shape,
+                                             include_top=False,
+                                             weights='imagenet')
+            self.preprocess_input = tf.keras.applications.inception_v3.preprocess_input
+            self.official_architecture = 'InceptionV3'
+            self.base_model.trainable = True
+        elif 'custom' in self.architecture.lower():
+            
+            
+            self.official_architecture = 'CustomCNN'
+            self.base_model.trainable = True
         else:
             raise NameError(f'''Could not find supported architecture matching
             '{self.architecture}' ''')
@@ -75,12 +86,10 @@ class ImageClassifier():
         x = self.preprocess_input(inputs)
         x = self.base_model(x, training=self.base_model.trainable)
         x = layers.GlobalAveragePooling2D()(x)
+        x = layers.BatchNormalization()(x)
         x = layers.Dropout(.2)(x)
         outputs = layers.Dense(1, activation='sigmoid')(x)
-        return tf.keras.Model(inputs, outputs)
-
-    def _build_final_model(self):
-        self.model = self._attach_head()
+        self.model = tf.keras.Model(inputs, outputs)
 
     def _compile(self):
         self.model.compile(
@@ -100,7 +109,7 @@ class ImageClassifier():
                             min_lr=0.00001)]
         if self.save_checkpoints:
             my_callbacks.append(callbacks.ModelCheckpoint(
-                os.path.join('checkpoints/', 
+                os.path.join('checkpoints/',
                              f'{self.official_architecture}_{self.train_id}'),
                 save_best_only=True))
         start = time.time()
@@ -153,8 +162,8 @@ class ImageClassifier():
 
     def train(self):
         self._get_base_model()
-        self._build_final_model()
         self._prep_dataset()
+        self._connect_head()
         self._compile()
         self._train()
         if self.save_model:
@@ -167,7 +176,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Train a convolutional neural network using Tensorflow')
     parser.add_argument('--arch', metavar='architecture', type=str, nargs='?',
-                        default='mobilenet',
+                        default='efficientnet',
                         help='')
     parser.add_argument('--ep', metavar='epochs', type=int, nargs='?',
                         default='10',
@@ -182,7 +191,7 @@ if __name__ == '__main__':
                         default=128,
                         help='')
     parser.add_argument('--dir', metavar='directory', type=str, nargs='?',
-                        default='data',
+                        default='data/cats_v_dogs',
                         help='')
     parser.add_argument('--hflip', metavar='horizontal_flip', type=bool,
                         nargs='?', default=True,
@@ -222,7 +231,7 @@ if __name__ == '__main__':
                                  target_size=args.ts,
                                  base_learning_rate=args.lr,
                                  architecture=args.arch,
-                                 dir=args.dir,
+                                 dataset_dir=args.dir,
                                  hflip=args.hflip,
                                  vflip=args.vflip,
                                  zoom_range=args.zoom,
@@ -233,3 +242,4 @@ if __name__ == '__main__':
                                  visualize=args.visualize,
                                  save_model=args.save,
                                  save_checkpoints=args.ckpt)
+    classifier.train()
