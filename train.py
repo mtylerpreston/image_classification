@@ -54,27 +54,30 @@ class ImageClassifier():
                                 batch_size=self.batch_size,
                                 class_mode='binary')
 
-
     def _get_base_model(self):
         if 'efficient' in self.architecture.lower():
-            from tensorflow.keras.applications.efficientnet import EfficientNetB3
+            from tensorflow.keras.applications.efficientnet \
+                import EfficientNetB3
             self.base_model = EfficientNetB3(input_shape=self.img_shape,
                                              include_top=False,
                                              weights='imagenet')
-            self.preprocess_input = tf.keras.applications.efficientnet.preprocess_input
+            self.preprocess_input = \
+                tf.keras.applications.efficientnet.preprocess_input
             self.official_architecture = 'EfficientNetB3'
             self.base_model.trainable = True
         elif 'inception' in self.architecture.lower():
-            from tensorflow.keras.applications.inception_v3 import InceptionV3
-            self.base_model = InceptionV3(input_shape=self.img_shape,
-                                             include_top=False,
-                                             weights='imagenet')
-            self.preprocess_input = tf.keras.applications.inception_v3.preprocess_input
+            from tensorflow.keras.applications.inception_v3 \
+                import InceptionV3
+            self.base_model = InceptionV3(
+                input_shape=self.img_shape,
+                include_top=False,
+                weights='imagenet'
+                )
+            self.preprocess_input = \
+                tf.keras.applications.inception_v3.preprocess_input
             self.official_architecture = 'InceptionV3'
             self.base_model.trainable = True
         elif 'custom' in self.architecture.lower():
-            
-            
             self.official_architecture = 'CustomCNN'
             self.base_model.trainable = True
         else:
@@ -140,7 +143,7 @@ class ImageClassifier():
         loss = self.history.history.get('loss')
         val_loss = self.history.history.get('val_loss')
 
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(8, 8))
         plt.subplot(2, 1, 1)
         plt.plot(acc, label='Training Accuracy')
         plt.plot(val_acc, label='Validation Accuracy')
@@ -150,7 +153,7 @@ class ImageClassifier():
         plt.ylim([min(plt.ylim()), 1])
         plt.title('Accuracy Comparison')
 
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(8, 8))
         plt.subplot(2, 1, 1)
         plt.plot(loss, label='Training Loss')
         plt.plot(val_loss, label='Validation loss')
