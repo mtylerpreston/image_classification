@@ -77,8 +77,8 @@ class Prediction():
 if __name__ == '__main__':
     predictor = Prediction(
         model_name='EfficientNetB3_1643388370',
-        input_shape=512, 
-        model_type='cats_v_dogs', 
+        input_shape=512,
+        model_type='cats_v_dogs',
         verbose=True
     )
 
@@ -87,8 +87,7 @@ if __name__ == '__main__':
     for img_path in os.listdir(cat_dir):
         predictor.remote_predict([os.path.join(cat_dir, img_path)])
         print(predictor.predictions)
-    
+
     for img_path in os.listdir(dog_dir):
         predictor.remote_predict([os.path.join(dog_dir, img_path)])
         print(predictor.predictions)
-    
