@@ -202,10 +202,10 @@ if __name__ == '__main__':
     parser.add_argument('--vflip', metavar='vertical_flip', type=bool,
                         nargs='?', default=False,
                         help='')
-    parser.add_argument('--zoom', metavar='zoom_range', type=float, nargs='?', 
+    parser.add_argument('--zoom', metavar='zoom_range', type=float, nargs='?',
                         default=.2,
                         help='')
-    parser.add_argument('--shear', metavar='shear_range', type=float, 
+    parser.add_argument('--shear', metavar='shear_range', type=float,
                         nargs='?', default=.2,
                         help='')
     parser.add_argument('--rotation', metavar='rotation_range', type=int,
