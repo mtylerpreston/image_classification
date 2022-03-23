@@ -1,25 +1,94 @@
 import tensorflow as tf
 import os
-import random
+import time
+import tarfile
+from google.cloud import storage
 
-def prep_image(img_path, dimension):
-    img = tf.keras.utils.load_img(img_path, 
-        target_size=(dimension, dimension))
-    return tf.keras.utils.img_to_array(img)
+CLOUD_MODEL_DIR = ''
+CLOUD_IMAGE_DIR = ''
+WORKING_DIR = '/tmp'
 
-model_path = 'checkpoints/EfficientNetB3_1642522858'
-model = tf.keras.models.load_model(model_path)
 
-tensors = []
-pred_dir = 'data/cats_v_dogs/validation/cats/'
-img_paths = os.listdir(pred_dir)
-img_paths = random.sample(img_paths, 10)
-for path in img_paths:
-    path = os.path.join(pred_dir, path)
-    tensors.append(prep_image(path, 256))
-tensors = tf.stack(tensors)
-pred = model.predict(tensors)
-print('\n\n')
-print('Prediction:')
-print(pred)
+class Prediction():
+    def __init__(self, model_name, model_type, input_shape, verbose=False):
+        self.model_name = model_name
+        self.model_type = model_type
+        self.input_shape = input_shape
+        self.verbose = verbose
+        self.model = None
 
+    def _prep_image(self, cloud_img_path):
+        target_size = (self.input_shape, self.input_shape)
+        img = tf.keras.utils.load_img(cloud_img_path, target_size)
+        return tf.keras.utils.img_to_array(img)
+
+    def _download_model(self):
+        """Downloads model from cloud storage."""
+        storage_client = storage.Client()
+        bucket = storage_client.bucket('coffeebot')
+        blob_name = f'image_classifiers/{self.model_type}/\
+            {self.model_name}.tar.gz'
+        blob = bucket.blob(blob_name)
+        dest_path = f'/tmp/{self.model_name}.tar.gz'
+        blob.download_to_filename(dest_path)
+        return dest_path
+
+    def _check_local_model(self):
+        in_saved = os.path.isfile(f'saved_models/{self.model_name}')
+        in_tmp = os.path.isfile(f'/tmp/{self.model_name}')
+        return in_saved or in_tmp
+
+    def _load_model(self):
+        # Get from cloud storage
+        # Check if local model exists
+        is_local = self._check_local_model()
+        if not is_local:
+            if self.verbose:
+                print('Downloading model from cloud storage...')
+            model_path = self._download_model()
+            # Untar
+            with tarfile.open(model_path) as t:
+                t.extractall('/tmp')
+            model_path = model_path.split('.')[0]
+        # Load
+        if self.verbose:
+            print('Loading model into memory...')
+        self.model = tf.keras.models.load_model(model_path)
+
+    def predict(self, tensors):
+        tensors = tf.stack(tensors)
+        start = time.time()
+        predictions = self.model.predict(tensors)
+        end = time.time()
+        self.prediction_time = end-start
+        return predictions
+
+    def remote_predict(self, img_paths):
+        if not self.model:
+            self._load_model()
+        tensors = []
+        for path in img_paths:
+            if self.verbose:
+                print(f'Prepping image: {path}')
+            tensors.append(self._prep_image(cloud_img_path=path))
+        self.predictions = self.predict(tensors)
+
+
+if __name__ == '__main__':
+    predictor = Prediction(
+        model_name='EfficientNetB3_1643388370',
+        input_shape=512, 
+        model_type='cats_v_dogs', 
+        verbose=True
+    )
+
+    cat_dir = 'data/samples/cats'
+    dog_dir = 'data/samples/dogs'
+    for img_path in os.listdir(cat_dir):
+        predictor.remote_predict([os.path.join(cat_dir, img_path)])
+        print(predictor.predictions)
+    
+    for img_path in os.listdir(dog_dir):
+        predictor.remote_predict([os.path.join(dog_dir, img_path)])
+        print(predictor.predictions)
+    
