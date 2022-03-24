@@ -4,11 +4,6 @@ import time
 import tarfile
 from google.cloud import storage
 
-CLOUD_MODEL_DIR = ''
-CLOUD_IMAGE_DIR = ''
-WORKING_DIR = '/tmp'
-
-
 class Prediction():
     def __init__(self, model_name, model_type, input_shape, verbose=False):
         self.model_name = model_name
