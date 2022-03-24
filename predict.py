@@ -15,28 +15,32 @@ class Prediction():
         self.model_type = model_type
         self.input_shape = input_shape
         self.verbose = verbose
+        self.model_path = f'/tmp/{self.model_name}.tar.gz'
         self.model = None
 
     def _prep_image(self, cloud_img_path):
         target_size = (self.input_shape, self.input_shape)
-        img = tf.keras.utils.load_img(cloud_img_path, target_size)
+        img = tf.keras.utils.load_img(
+            path=cloud_img_path,
+            target_size=target_size
+            )
         return tf.keras.utils.img_to_array(img)
 
     def _download_model(self):
         """Downloads model from cloud storage."""
         storage_client = storage.Client()
         bucket = storage_client.bucket('coffeebot')
-        blob_name = f'image_classifiers/{self.model_type}/\
-            {self.model_name}.tar.gz'
-        blob = bucket.blob(blob_name)
-        dest_path = f'/tmp/{self.model_name}.tar.gz'
-        blob.download_to_filename(dest_path)
-        return dest_path
+        blob_name = os.path.join(
+            f'image_classifiers/{self.model_type}/',
+            f'{self.model_name}.tar.gz'
+            )
+        blob = bucket.blob(blob_name)        
+        blob.download_to_filename(self.model_path)
 
     def _check_local_model(self):
-        in_saved = os.path.isfile(f'saved_models/{self.model_name}')
-        in_tmp = os.path.isfile(f'/tmp/{self.model_name}')
-        return in_saved or in_tmp
+        in_tmp = os.path.isdir(f'/tmp/{self.model_name}')
+        in_private_tmp = os.path.isdir(f'/private/tmp/{self.model_name}')
+        return in_tmp or in_private_tmp
 
     def _load_model(self):
         # Get from cloud storage
@@ -45,15 +49,15 @@ class Prediction():
         if not is_local:
             if self.verbose:
                 print('Downloading model from cloud storage...')
-            model_path = self._download_model()
+            self._download_model()
             # Untar
-            with tarfile.open(model_path) as t:
+            with tarfile.open(self.model_path) as t:
                 t.extractall('/tmp')
-            model_path = model_path.split('.')[0]
+        self.model_path = self.model_path.split('.')[0]
         # Load
         if self.verbose:
             print('Loading model into memory...')
-        self.model = tf.keras.models.load_model(model_path)
+        self.model = tf.keras.models.load_model(self.model_path)
 
     def predict(self, tensors):
         tensors = tf.stack(tensors)
