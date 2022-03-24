@@ -1,4 +1,4 @@
-tensorflow==2.7.0
+tensorflow>=2.7.1
 matplotlib
 scipy
 google-cloud-storage
